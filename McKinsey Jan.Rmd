@@ -18,6 +18,21 @@ library(randomForest)
 library(randomForestExplainer)
 
 ```
+###McKinsey Analytics Online Hackathon (Jan 2018)¶
+
+The task was to classify whether clients of a bank will get their loans approved based on probabilities. 
+As an input we got 2 datasets, for training and for testing.
+
+The steps:
+- data exploration
+- data cleaning
+- feature engineering 
+- model creating (Generalized Linear Model)
+- testing
+
+My result was 0.8112, which ranked 195 among 503 participants.
+
+P.S. It was my first ever hackathon.
 
 ##Uploading data and having first glance on what we have:
 ```{r upload data}
@@ -203,7 +218,7 @@ Now the dataset is ready for predictions!
 cat("We have", nrow(data2), "observations and", ncol(data2), "variables in the dataset")
 ```
 
-Creating the model
+##Creating the model
 ```{r model}
 model <- glm(formula=Approved ~ Monthly_Income + Var1, family=binomial, data=data2)
 ```
