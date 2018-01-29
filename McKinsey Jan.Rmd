@@ -1,0 +1,250 @@
+---
+title: "McKinsey Jan"
+author: "Veronika Tamaio Flores"
+date: "1/20/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(car)
+library(lubridate)
+library(tidyr)
+library(randomForest)
+library(randomForestExplainer)
+
+```
+
+##Uploading data and having first glance on what we have:
+```{r upload data}
+data <- read.csv("train.csv")
+glimpse(data)
+cat("We have", nrow(data), "observations and", ncol(data), "variables in the dataset")
+```
+
+It is obvious as well that some of the variables (e.g. DOB or Var1) have improper classes. This will be resolved in the Data Cleaning section.
+
+##Examining the data:
+1. Cheking empty values
+2. Cheking missing values
+3. Checking data consistency
+```{r check empty, echo=FALSE}
+#checking if there are any empty values for each variable
+cat("Empty spaces", colnames(data[1]), ":", sum(data$ID == "", na.rm = T))
+cat("Empty spaces", colnames(data[2]), ":", sum(data$Gender == "", na.rm = T))
+cat("Empty spaces", colnames(data[3]), ":", sum(data$DOB == "", na.rm = T))
+cat("Empty spaces", colnames(data[4]), ":", sum(data$Lead_Creation_Date == "", na.rm = T))
+cat("Empty spaces", colnames(data[5]), ":", sum(data$City_Code == "", na.rm = T))
+cat("Empty spaces", colnames(data[6]), ":", sum(data$City_Category == "", na.rm = T))
+cat("Empty spaces", colnames(data[7]), ":", sum(data$Employer_Code == "", na.rm = T))
+cat("Empty spaces", colnames(data[8]), ":", sum(data$Employer_Category1 == "", na.rm = T))
+cat("Empty spaces", colnames(data[9]), ":", sum(data$Employer_Category2 == "", na.rm = T))
+cat("Empty spaces", colnames(data[10]), ":", sum(data$Monthly_Income == "", na.rm = T))
+cat("Empty spaces", colnames(data[11]), ":", sum(data$Customer_Existing_Primary_Bank_Code == "", na.rm = T))
+cat("Empty spaces", colnames(data[12]), ":", sum(data$Primary_Bank_Type == "", na.rm = T))
+cat("Empty spaces", colnames(data[13]), ":", sum(data$Contacted == "", na.rm = T))
+cat("Empty spaces", colnames(data[14]), ":", sum(data$Source == "", na.rm = T))
+cat("Empty spaces", colnames(data[15]), ":", sum(data$Source_Category == "", na.rm = T))
+cat("Empty spaces", colnames(data[16]), ":", sum(data$Existing_EMI == "", na.rm = T))
+cat("Empty spaces", colnames(data[17]), ":", sum(data$Loan_Amount == "", na.rm = T))
+cat("Empty spaces", colnames(data[18]), ":", sum(data$Loan_Period == "", na.rm = T))
+cat("Empty spaces", colnames(data[19]), ":", sum(data$Interest_Rate == "", na.rm = T))
+cat("Empty spaces", colnames(data[20]), ":", sum(data$EMI == "", na.rm = T))
+cat("Empty spaces", colnames(data[21]), ":", sum(data$Var1 == "", na.rm = T))
+cat("Empty spaces", colnames(data[22]), ":", sum(data$Approved == "", na.rm = T))
+
+```
+
+We can see that there are quite a few empty values in the dataset. Let us continue the examination and then dealing with problems we've found.
+
+```{r check missing, echo=FALSE}
+#checking missing values for each variable
+cat("NAs:", colnames(data[1]), sum(is.na(data$ID)))
+cat("NAs:", colnames(data[2]), sum(is.na(data$Gender)))
+cat("NAs:", colnames(data[3]), sum(is.na(data$DOB)))
+cat("NAs:", colnames(data[4]), sum(is.na(data$Lead_Creation_Date)))
+cat("NAs:", colnames(data[5]), sum(is.na(data$City_Code)))
+cat("NAs:", colnames(data[6]), sum(is.na(data$City_Category)))
+cat("NAs:", colnames(data[7]), sum(is.na(data$Employer_Code)))
+cat("NAs:", colnames(data[8]), sum(is.na(data$Employer_Category1)))
+cat("NAs:", colnames(data[9]), sum(is.na(data$Employer_Category2)))
+cat("NAs:", colnames(data[10]), sum(is.na(data$Monthly_Income)))
+cat("NAs:", colnames(data[11]), sum(is.na(data$Customer_Existing_Primary_Bank_Code)))
+cat("NAs:", colnames(data[12]), sum(is.na(data$Primary_Bank_Type)))
+cat("NAs:", colnames(data[13]), sum(is.na(data$Contacted)))
+cat("NAs:", colnames(data[14]), sum(is.na(data$Source)))
+cat("NAs:", colnames(data[15]), sum(is.na(data$Source_Category)))
+cat("NAs:", colnames(data[16]), sum(is.na(data$Existing_EMI)))
+cat("NAs:", colnames(data[17]), sum(is.na(data$Loan_Amount)))
+cat("NAs:", colnames(data[18]), sum(is.na(data$Loan_Period)))
+cat("NAs:", colnames(data[19]), sum(is.na(data$Interest_Rate)))
+cat("NAs:", colnames(data[20]), sum(is.na(data$EMI)))
+cat("NAs:", colnames(data[21]), sum(is.na(data$Var1)))
+cat("NAs:", colnames(data[22]), sum(is.na(data$Approved)))
+
+#checking how many complete observations are in the dataset
+cat("There are", sum(complete.cases(data)), "complete observations in the dataset")
+```
+
+We have quite a few NA's as well. Almost all of them are observed in columns connected to loans.
+
+It is time to check the outliers
+```{r check outliers}
+summary(data$Monthly_Income)
+summary(data$Loan_Amount)
+summary(data$Loan_Period)
+summary(data$Interest_Rate)
+summary(data$Existing_EMI)
+summary(data$EMI)
+```
+We have outliers in a few variables such as Monthly_Income, Existing_EMI and EMI. 
+
+Now let us check the levels of factor variables.
+```{r check factor levels}
+nlevels(data$Gender)
+nlevels(data$City_Category)
+nlevels(data$Employer_Category1)
+nlevels(data$Customer_Existing_Primary_Bank_Code)
+nlevels(data$Primary_Bank_Type)
+nlevels(data$Contacted)
+nlevels(data$Source)
+nlevels(data$Source_Category)
+```
+We have 8 factor variables with lveles range from 2 for Gender to 58 for Customer_Existing_Primaty_Bank_Code.
+
+## Cleaning the data
+During the data examination we found a few problems:
+- empty values;
+- missing values;
+- improper variable's classes;
+- outliers.
+
+Let us start to solve this problems:
+- assigning proper classes:
+```{r data cleaning - classes}
+data$ID <- as.character(data$ID)
+data$DOB <- dmy(data$DOB)
+data$Lead_Creation_Date <- dmy(data$Lead_Creation_Date)
+data$City_Code <- as.character(data$City_Code)
+data$Employer_Code <- as.character(data$Employer_Code)
+```
+
+- dealing with empty values:
+```{r data cleaning - empty values}
+#Discard empty values for DOB - we only have 15 of them
+data <- data %>%
+  filter(data$DOB !=is.na(data$DOB))
+
+#Discard empty valuess for City_Code - we only have 814 of them
+data <- data %>%
+  filter(data$City_Code !="")
+
+#Check if City_Category still have empty values
+cat("Empty spaces", colnames(data[6]), ":", sum(data$City_Category == "", na.rm = T))
+#As far as there are no more empty values in City_Category, we leave it as it is
+
+#Fill empty values for factors
+levels(data$Employer_Category1) <- c("unknown", "A", "B", "C")
+levels(data$Customer_Existing_Primary_Bank_Code) <- c("unknown", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008", "B009", "B010", "B011", "B012", "B013", "B014", "B015", "B016", "B017", "B018", "B019", "B020", "B021", "B022", "B023", "B024", "B025", "B026", "B027", "B028", "B029", "B030", "B031", "B032", "B033", "B034", "B035", "B036", "B037", "B038", "B039", "B040", "B041", "B042", "B043", "B044", "B045", "B046", "B047", "B048", "B049", "B050", "B051", "B052", "B053", "B054", "B055", "B056", "B057")
+levels(data$Primary_Bank_Type) <- c("unknown", "G", "P")
+```
+
+- dealing with missing values:
+```{r data cleaning - missing values}
+#Discard empty values for Employer_Category2 
+data <- data %>%
+  filter(data$Employer_Category2 !=is.na(data$Employer_Category2))
+
+#Fill empty values for loan connected variables
+data$Existing_EMI[is.na(data$Existing_EMI)] <- -1
+data$Loan_Amount[is.na(data$Loan_Amount)] <- -1
+data$Loan_Period[is.na(data$Loan_Period)] <- -1
+data$Interest_Rate[is.na(data$Interest_Rate)] <- -1
+data$EMI[is.na(data$EMI)] <- -1
+```
+
+- outliers: 
+```{r data cleaning - outliers}
+#Create function to drop outliers
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+#Removing outliers
+data$Monthly_Income <- remove_outliers(data$Monthly_Income)
+data <- data %>%
+  filter(data$DOB<Sys.Date())
+
+#Cleaning new NA's
+data <- data %>%
+  filter(data$Monthly_Income !=is.na(data$Monthly_Income))
+
+#We will not drop any other outliers because they may have influence on our future predictions 
+```
+
+##Features engineering
+The data is clean now. It is time to create new features.
+```{r feature engineering}
+#Age
+data2 <- data %>%
+  mutate(Age=as.numeric(round((Sys.Date()-data$DOB)/365)))
+```
+
+Now the dataset is ready for predictions!
+```{r clean data, echo=FALSE}
+cat("We have", nrow(data2), "observations and", ncol(data2), "variables in the dataset")
+```
+
+Creating the model
+```{r model}
+model <- glm(formula=Approved ~ Monthly_Income + Var1, family=binomial, data=data2)
+```
+
+Upload testing file and process it
+```{r test cleaning}
+test <- read.csv("test.csv")
+
+test$ID <- as.character(test$ID)
+test$DOB <- dmy(test$DOB)
+test$Lead_Creation_Date <- dmy(test$Lead_Creation_Date)
+test$City_Code <- as.character(test$City_Code)
+test$Employer_Code <- as.character(test$Employer_Code)
+
+levels(test$Employer_Category1) <- c("unknown", "A", "B", "C")
+levels(test$Customer_Existing_Primary_Bank_Code) <- c("unknown", "B001", "B002", "B003", "B004", "B005", "B006", "B007", "B008", "B009", "B010", "B011", "B012", "B013", "B014", "B015", "B016", "B017", "B018", "B019", "B020", "B021", "B022", "B023", "B024", "B025", "B026", "B027", "B028", "B029", "B030", "B031", "B032", "B033", "B034", "B035", "B036", "B037", "B038", "B039", "B040", "B041", "B042", "B043", "B044", "B045", "B046", "B047", "B048", "B049", "B050", "B051", "B052", "B053", "B054", "B055", "B056", "B057")
+
+levels(test$Primary_Bank_Type) <- c("unknown", "G", "P")
+
+test$DOB[is.na(test$DOB)] <- "1990-01-01"
+
+test1 <- test %>%
+  mutate(Age=as.numeric(round((Sys.Date()-test$DOB)/365)))
+
+test1$Existing_EMI[is.na(test1$Existing_EMI)] <- -1
+test1$Loan_Amount[is.na(test1$Loan_Amount)] <- -1
+test1$Loan_Period[is.na(test1$Loan_Period)] <- -1
+test1$Interest_Rate[is.na(test1$Interest_Rate)] <- -1
+test1$EMI[is.na(test1$EMI)] <- -1
+```
+
+Testing model on the data
+```{r testing}
+Approved <-predict.glm(model, newdata = test1, type="response")
+
+#Creating the solution
+ID <- test1 %>%
+  select(ID)
+solution <- cbind(ID, Approved)
+
+#Writing of solution
+write.csv(solution, file="solution.csv", row.names=F)
+```
+
